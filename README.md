@@ -1,12 +1,12 @@
 # xlsx-cvs-to-tex-converter
 Simple excel table to tex table converter
 
-##Important
+## Important
 **By now it is csv only!**
 
-##Short description:
+## Short description:
 
-###Modes
+### Modes
 - "Treat empty rows as new table sign" - empty rows becomes trigger to end current table and start a new one. The number of columns is calculated for each table separately;
 - "Remove table borders" - no table border;
 - "Use latex math detection" - words containing special characters and numbers are enclosed in "$" characters. List of special characters - `latexMathList`;
@@ -19,7 +19,7 @@ By default [csv quoting character](https://en.wikipedia.org/wiki/Comma-separated
 
 Result of  processing saves to the CONVERTER_RESILT.texCONVERTER_RESILT.tex file in the same place where the application or script lies
 
-###To-do
+### To-do
 - Add allowing of empty cell in table
 - Add multicolumn processing
 - Implement xlsx processing
