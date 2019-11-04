@@ -2,12 +2,13 @@ import tkinter as tk
 from tkinter import filedialog
 import pandas as pd
 import csv
-
+import xlrd 
 
 class Application(tk.Frame):
     def __init__(self, master=None):
         super().__init__(master)
         self.master = master
+        self.master.filename = ""
         self.pack()
         self.create_widgets()
         self.latexMathList = ["\\", "^", "_"]
@@ -46,6 +47,13 @@ class Application(tk.Frame):
         self.quit = tk.Button(self, text="Quit", fg="red", command=self.master.destroy)
         self.quit.pack(side="bottom")
 
+        self.choiceDelimiter = tk.StringVar()
+        self.choices = ("current delimiter: \";\"", "current delimiter: \",\"")
+        self.choiceDelimiter.set(self.choices[0])
+        self.w = tk.OptionMenu(self, self.choiceDelimiter, *self.choices)
+
+        self.proceed = tk.Button(self, text = "Proceed", command = self.proceed)
+
     def is_number(self, s):
         try:
             float(s)
@@ -54,23 +62,28 @@ class Application(tk.Frame):
             return False
 
     def select(self):
+        try:
+            self.proceed.pack_forget()
+        except:
+            pass
+        try:
+            self.w.pack_forget()
+        except:
+            pass
+
         self.master.filename =  filedialog.askopenfilename(initialdir = "/",title = "Select file",filetypes = (("xlsx files","*.xlsx"),("csv files","*.csv")))       
         print(self.master.filename)
         file = (self.master.filename.split("/")[-1]).split(".")
+        print(file)
         if len(file) > 1:
             self.status.configure(state='normal')
             self.status.delete('1.0', tk.END)
             self.status.insert(tk.END, self.master.filename, 'choosen')
-            self.status.configure(state='disabled')
+            self.status.tag_config('choosen', background="white", foreground="green")
 
             if file[1] == "csv":                
-                self.choiceDelimiter = tk.StringVar()
-                self.choices = ("current delimiter: \";\"", "current delimiter: \",\"")
-                self.choiceDelimiter.set(self.choices[0])
-                self.w = tk.OptionMenu(self, self.choiceDelimiter, *self.choices)
                 self.w.pack();
-
-            self.proceed = tk.Button(self, text = "Proceed", command = self.proceed)
+            
             self.proceed.pack()
         else:
             self.status.configure(state='normal')
@@ -78,7 +91,6 @@ class Application(tk.Frame):
             self.status.insert(tk.END, "No file", 'choosen')
             self.status.configure(state='disabled')
             self.status.tag_config('choosen', background="white", foreground="red")
-
 
     def proceed(self):
         file = (self.master.filename.split("/")[-1]).split(".")[1]
@@ -93,8 +105,15 @@ class Application(tk.Frame):
         
 
 
-    def proceedXLSX(self):        
-        print(":)")
+    def proceedXLSX(self):
+        wb = xlrd.open_workbook(self.master.filename) 
+        sheet = wb.sheet_by_index(0) 
+        sheet.cell_value(0, 0) 
+        print(sheet.nrows)
+        print(sheet.ncols)
+        print("____")
+        for i in range(sheet.nrows): 
+            print(sheet.cell_value(i, 0)) 
 
     def proceedCSV(self):
         pd.set_option('max_colwidth', 40)
@@ -128,7 +147,7 @@ class Application(tk.Frame):
                     needNewTable = False
 
                 for entry in row:
-                    if len(entry.strip()) > 0:
+                    if len(entry.strip()) >= 0:
                         counter = counter + 1
                 
                 actualColumnNum[tableCounter] = max(actualColumnNum[tableCounter], counter)
@@ -168,8 +187,8 @@ class Application(tk.Frame):
                     for entry in row:
 
                         entry = entry.strip()
-                        if(len(entry) == 0):
-                            continue
+                        #if(len(entry) == 0):
+                            #continue
                         i += 1
 
                         for char in self.latexEscapingCharacter:
