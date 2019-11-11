@@ -13,7 +13,7 @@ Simple excel table to tex table converter
 - "Table caption at bottom" - caption appears under corresponding table if checked, otherwise above the table;
 - separator selection is available when selecting a [csv file](https://en.wikipedia.org/wiki/Comma-separated_values)
 
-Latex special characters are shielded by "\". List of these characters - `latexEscapingCharacter`
+Latex special characters are shielded by "\\". List of these characters - `latexEscapingCharacter`
 
 By default [csv quoting character](https://en.wikipedia.org/wiki/Comma-separated_values#History) is "**"**". It can only be configured through the source code.
 
