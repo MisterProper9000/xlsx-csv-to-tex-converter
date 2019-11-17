@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import filedialog
 import pandas as pd
 import csv
+import codecs
 import xlrd 
 
 class Application(tk.Frame):
@@ -12,8 +13,7 @@ class Application(tk.Frame):
         self.pack()
         self.create_widgets()
         self.latexMathList = ["\\", "^", "_"]
-        self.latexEscapingCharacter = ["#", "&"]
-        self.quotechar = '\"'
+        self.latexEscapingCharacter = ["#", "&", "$"]
 
     def create_widgets(self):
         self.hi_there = tk.Button(self)
@@ -50,7 +50,12 @@ class Application(tk.Frame):
         self.choiceDelimiter = tk.StringVar()
         self.choices = ("current delimiter: \";\"", "current delimiter: \",\"")
         self.choiceDelimiter.set(self.choices[0])
-        self.w = tk.OptionMenu(self, self.choiceDelimiter, *self.choices)
+        self.wDelimiter = tk.OptionMenu(self, self.choiceDelimiter, *self.choices)
+
+        self.choiceQuotechar = tk.StringVar()
+        self.qChoices = ("current quote char: \"", "current quote char: \'")
+        self.choiceQuotechar.set(self.qChoices[0])
+        self.wQuotechar = tk.OptionMenu(self, self.choiceQuotechar, *self.qChoices)
 
         self.proceed = tk.Button(self, text = "Proceed", command = self.proceed)
 
@@ -67,14 +72,18 @@ class Application(tk.Frame):
         except:
             pass
         try:
-            self.w.pack_forget()
+            self.wDelimiter.pack_forget()
+        except:
+            pass
+        try:
+            self.wQuotechar.pack_forget()
         except:
             pass
 
         self.master.filename =  filedialog.askopenfilename(initialdir = "/",title = "Select file",filetypes = (("xlsx files","*.xlsx"),("csv files","*.csv")))       
-        print(self.master.filename)
+        #print(self.master.filename)
         file = (self.master.filename.split("/")[-1]).split(".")
-        print(file)
+        #print(file)
         if len(file) > 1:
             self.status.configure(state='normal')
             self.status.delete('1.0', tk.END)
@@ -82,8 +91,9 @@ class Application(tk.Frame):
             self.status.tag_config('choosen', background="white", foreground="green")
 
             if file[1] == "csv":                
-                self.w.pack();
-            
+                self.wDelimiter.pack();
+                self.wQuotechar.pack();
+
             self.proceed.pack()
         else:
             self.status.configure(state='normal')
@@ -102,18 +112,123 @@ class Application(tk.Frame):
         self.status.delete('1.0', tk.END)
         self.status.insert(tk.END, "File processed. Result saved in CONVERTER_RESILT.tex", 'choosen')
         self.status.configure(state='disabled') 
-        
+
 
 
     def proceedXLSX(self):
         wb = xlrd.open_workbook(self.master.filename) 
         sheet = wb.sheet_by_index(0) 
-        sheet.cell_value(0, 0) 
-        print(sheet.nrows)
-        print(sheet.ncols)
-        print("____")
-        for i in range(sheet.nrows): 
-            print(sheet.cell_value(i, 0)) 
+        name = (self.master.filename.split("/")[-1]).split(".")[0]
+        f = codecs.open('CONVERTER_RESILT.tex','w', "utf-8")
+        tableCounter = 1
+        f.write("\\begin{table}[H]\n"+("\\caption{"+name+str(tableCounter)+"}\n" if self.bottomCaption.get() == False else "")+"\\label{tab:my_label"+str(tableCounter)+"}\n\\begin{center}\n\\vspace{5mm}\n\\begin{tabular}{" + ("|" if (self.removeBorders.get() == False) else ""))
+        actualColumnNum = {}
+        actualColumnNum[tableCounter] = sheet.ncols
+        length = 0
+        counter = 0
+        needNewTable = False
+        if(self.treatAsNew.get() == True):
+            for i in range(sheet.nrows):
+                length = 0
+                for j in range(sheet.ncols):
+                    length += len(str((sheet.cell_value(i,j))).strip())
+
+                if(length == 0):
+                    needNewTable = True
+                    continue
+
+                if(needNewTable == True):
+                    tableCounter += 1
+                    actualColumnNum[tableCounter] = 0
+                    needNewTable = False
+
+                counter = sheet.ncols
+                #print(sheet.ncols)
+                for j in reversed(range(sheet.ncols)):
+                    if(len((str(sheet.cell_value(i,j))).strip()) > 0):
+                        break
+                    else:
+                        counter -= 1
+                actualColumnNum[tableCounter] = max(actualColumnNum[tableCounter], counter)
+                #print(actualColumnNum[tableCounter])
+                
+        length = 0
+        needNewTable = False
+        row_counter = 0
+        tableCounter = 1
+
+        f.write((actualColumnNum[tableCounter] - 1)* "c|")
+        f.write("c") if self.removeBorders.get() == True else f.write("c|")
+        f.write("}\n\\hline\n") if self.removeBorders.get() == False else f.write("}\n")
+
+        for i in range(sheet.nrows):
+            length = 0
+            for j in range(sheet.ncols):
+                length += len((str(sheet.cell_value(i,j))).strip())
+            if(length == 0 and self.treatAsNew.get() == True):
+                needNewTable = True
+                continue
+
+            if(needNewTable == True):
+                f.write("\\end{tabular}\n"+("\\caption{"+name+str(tableCounter-1)+"}\n" if self.bottomCaption.get() == True else "")+"\\end{center}\n\\end{table}\n\n\\begin{table}[H]\n"+("\\caption{"+name+str(tableCounter)+"}\n" if self.bottomCaption.get() == False else "")+"\\label{tab:my_label"+str(tableCounter)+"}\n\\begin{center}\n\\vspace{5mm}\n\\begin{tabular}{"+("|" if self.removeBorders.get() == False else "")+(actualColumnNum[tableCounter]-1)*"c|"+("c|" if self.removeBorders.get() == False else "c")+"}\n"+("\\hline\n" if self.removeBorders.get() == False else ""))
+                needNewTable = False
+                tableCounter += 1
+
+            for j in range(actualColumnNum[tableCounter]):
+                entry = str(sheet.cell_value(i,j))
+
+                for char in self.latexEscapingCharacter:
+                    entry = entry.replace(char, "\\" + char)
+
+                if (self.useMathList.get() == True):
+                    sub_entries = entry.split(" ")
+                    for index, sub_entry in enumerate(sub_entries):
+                        if (self.is_number(sub_entry) == True):
+                            sub_entries[index] = "$" + sub_entry
+                            j = 1
+                            while(index + j < len(sub_entries) and self.is_number(sub_entries[j]) == True):
+                                sub_entries[index] += " " + sub_entries[index + j]
+                                sub_entries[index + j] = ""
+                                j = j + 1
+                            sub_entries[index] += "$"
+                            index += j - 1
+                            continue
+                        else:
+                            for math in self.latexMathList:
+                                if (sub_entry.find(math) != -1):
+                                    sub_entries[index] = "$" + sub_entries[index] + "$"
+                                    break
+
+                    entry = ""
+                    for sub_entry in sub_entries:
+                        entry += sub_entry + " "
+                else:
+                    for k in range(2, len(self.latexMathList)):
+                        entry = entry.replace(self.latexMathList[k], "\\" + self.latexMathList[k])
+
+                if(self.is_number(sheet.cell_value(i,j)) == True and self.useMathList.get() == True):
+                    f.write(" $ " + entry + " $" + " & " if j != (actualColumnNum[tableCounter]-1) else "\\\\")
+                else:
+                    f.write(entry + " & " if j != (actualColumnNum[tableCounter]-1) else "\\\\")
+            
+
+            length = 0
+            for j in range(sheet.ncols):
+                length += len((str(sheet.cell_value(min(i+1, sheet.nrows-1),j))).strip())
+
+            if((length == 0 and self.treatAsNew.get() == True) or min(i+1, sheet.nrows-1) == sheet.nrows - 1):
+                if (self.removeBorders.get() == False):
+                    f.write("\n\\hline\n")
+                else:
+                    f.write("\n")
+            else:
+                f.write("\n\\hline\n")
+
+        
+        f.write("\\end{tabular}\n"+("\\caption{"+name+str(tableCounter)+"}\n" if self.bottomCaption.get() == True else "")+"\\end{center}\n\\end{table}")
+        f.close()
+
+       
 
     def proceedCSV(self):
         pd.set_option('max_colwidth', 40)
@@ -121,20 +236,19 @@ class Application(tk.Frame):
 
         name = (self.master.filename.split("/")[-1]).split(".")[0]
 
-        f = open('CONVERTER_RESILT.tex','w')
+        f = codecs.open('CONVERTER_RESILT.tex','w', "utf-8")
         tableCounter = 1
         f.write("\\begin{table}[H]\n"+("\\caption{"+name+str(tableCounter)+"}\n" if self.bottomCaption.get() == False else "")+"\\label{tab:my_label"+str(tableCounter)+"}\n\\begin{center}\n\\vspace{5mm}\n\\begin{tabular}{" + ("|" if (self.removeBorders.get() == False) else ""))
-        
-        emptyLinesListener = ""
+
         actualColumnNum = {}
         actualColumnNum[tableCounter] = data.shape[1] #csv.reader calculates number of columns by first row, but it could be uncorrect, so this value will be calculated after string parsing
-        
 
         delimiter = self.choiceDelimiter.get().split("\"")[1]
+        quotechar = self.choiceQuotechar.get().split(" ")[-1]
         counter = 0;
         needNewTable = False
         with open(self.master.filename, "r") as my_input_file: #calculate number of columns
-            for row in csv.reader(my_input_file, delimiter=delimiter, quotechar = self.quotechar):
+            for row in csv.reader(my_input_file, delimiter=delimiter, quotechar = quotechar):
                 #print(row)
                 counter = 0;
                 if (len(row) == 0 and self.treatAsNew.get() == True):#if empty line is a table delimiter then no need to count column count across all rows
@@ -147,8 +261,8 @@ class Application(tk.Frame):
                     needNewTable = False
 
                 for entry in row:
-                    if len(entry.strip()) >= 0:
-                        counter = counter + 1
+                    #if len(entry.strip()) >= 0:
+                    counter = counter + 1
                 
                 actualColumnNum[tableCounter] = max(actualColumnNum[tableCounter], counter)
                 #print(tableCounter)
@@ -161,13 +275,12 @@ class Application(tk.Frame):
         f.write("c") if self.removeBorders.get() == True else f.write("c|")
         f.write("}\n\\hline\n") if self.removeBorders.get() == False else f.write("}\n")
         #print(len(actualColumnNum))
-        
-        
+
         needNewTable = False
         row_counter = 0
-        
+
         with open(self.master.filename, "r") as my_input_file:
-            cvs_reader = csv.reader(my_input_file, delimiter=delimiter, quotechar = self.quotechar)
+            cvs_reader = csv.reader(my_input_file, delimiter=delimiter, quotechar = quotechar)
             for row in cvs_reader:
                 #print(row)
                 row_counter = row_counter + 1
@@ -185,7 +298,6 @@ class Application(tk.Frame):
                             f.write("\\hline\n")
                     i = 0
                     for entry in row:
-
                         entry = entry.strip()
                         #if(len(entry) == 0):
                             #continue
@@ -216,9 +328,12 @@ class Application(tk.Frame):
                             entry = ""
                             for sub_entry in sub_entries:
                                 entry += sub_entry
+                        else:
+                            for k in range(2, len(self.latexMathList)):
+                                entry = entry.replace(self.latexMathList[k], "\\" + self.latexMathList[k])
 
                         f.write(entry + (" & " if (i != (actualColumnNum[tableCounter])) else ""))
-                    
+
                     f.write((actualColumnNum[tableCounter]-i-1)*"& ")
                     f.write("\\\\")
                     f.write("\n")
